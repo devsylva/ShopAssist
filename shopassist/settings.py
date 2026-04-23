@@ -106,17 +106,10 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        **({
-            'file': {
-                'class': 'logging.FileHandler',
-                'filename': BASE_DIR / 'logs' / 'shopassist.log',
-                'formatter': 'verbose',
-            },
-        } if DEBUG else {}),
     },
     'loggers': {
         'agent': {
-            'handlers': ['console', 'file'] if DEBUG else ['console'],
+            'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': False,
         },
