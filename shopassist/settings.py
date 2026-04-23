@@ -106,15 +106,17 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'shopassist.log',
-            'formatter': 'verbose',
-        },
+        **({
+            'file': {
+                'class': 'logging.FileHandler',
+                'filename': BASE_DIR / 'logs' / 'shopassist.log',
+                'formatter': 'verbose',
+            },
+        } if DEBUG else {}),
     },
     'loggers': {
         'agent': {
-            'handlers': ['console'] if os.environ.get('RAILWAY_ENVIRONMENT') else ['console', 'file'],
+            'handlers': ['console', 'file'] if DEBUG else ['console'],
             'level': 'DEBUG',
             'propagate': False,
         },
