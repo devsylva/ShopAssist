@@ -87,6 +87,11 @@ AGENT_MODEL = os.environ.get('AGENT_MODEL', 'claude-sonnet-4-6')
 # Limit conversation history sent to Claude. Raise this to demo token growth.
 AGENT_MAX_HISTORY = int(os.environ.get('AGENT_MAX_HISTORY', '20'))
 
+# ── Langfuse observability ────────────────────────────────────────────────────
+LANGFUSE_PUBLIC_KEY = os.environ.get('LANGFUSE_PUBLIC_KEY', '')
+LANGFUSE_SECRET_KEY = os.environ.get('LANGFUSE_SECRET_KEY', '')
+LANGFUSE_HOST_URL = os.environ.get('LANGFUSE_HOST_URL', 'https://cloud.langfuse.com')
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 LOGGING = {
     'version': 1,

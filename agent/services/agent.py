@@ -1,10 +1,17 @@
 import re
 import logging
 from django.conf import settings
+from langfuse import Langfuse
 from .knowledge import KnowledgeService
 from .orders import OrderService
 
 logger = logging.getLogger('agent')
+
+langfuse = Langfuse(
+    public_key=settings.LANGFUSE_PUBLIC_KEY,
+    secret_key=settings.LANGFUSE_SECRET_KEY,
+    host=settings.LANGFUSE_HOST_URL,
+)
 
 ORDER_ID_RE = re.compile(r'\b(SA-\d{5})\b', re.IGNORECASE)
 
@@ -50,6 +57,12 @@ class AgentService:
             user_message[:80],
         )
 
+        trace = langfuse.trace(
+            name="shopassist.process_message",
+            session_id=session.session_key,
+            input=user_message,
+        )
+
         # ── Order lookup ─────────────────────────────────────────────────────
         order_data = None
         order_lookup_used = False
@@ -85,19 +98,29 @@ class AgentService:
         messages = history + [{"role": "user", "content": user_message}]
 
         # ── Call Claude ──────────────────────────────────────────────────────
-        response_text, escalation_flagged = self._call_claude(system, messages)
+        response_text, escalation_flagged = self._call_claude(system, messages, trace)
+
+        source_filenames = [s['filename'] for s in sources]
+        trace.update(
+            output=response_text,
+            metadata={
+                'escalation_flagged': escalation_flagged,
+                'order_lookup_used': order_lookup_used,
+                'sources_used': source_filenames,
+            },
+        )
 
         logger.info(
             "Response ready | session=%s | escalation=%s | order_lookup=%s | sources=%s",
             session.session_key[:8],
             escalation_flagged,
             order_lookup_used,
-            [s['filename'] for s in sources],
+            source_filenames,
         )
 
         return {
             'response': response_text,
-            'sources_used': [s['filename'] for s in sources],
+            'sources_used': source_filenames,
             'order_lookup_used': order_lookup_used,
             'escalation_flagged': escalation_flagged,
         }
@@ -117,7 +140,7 @@ class AgentService:
             for msg in reversed(recent)
         ]
 
-    def _call_claude(self, system: str, messages: list[dict]) -> tuple[str, bool]:
+    def _call_claude(self, system: str, messages: list[dict], trace=None) -> tuple[str, bool]:
         if not settings.ANTHROPIC_API_KEY:
             logger.error("ANTHROPIC_API_KEY is not set — cannot call Claude")
             return (
@@ -125,8 +148,14 @@ class AgentService:
                 False,
             )
 
+        generation = trace.generation(
+            name="claude.messages.create",
+            model=settings.AGENT_MODEL,
+            input={"system": system, "messages": messages},
+        ) if trace else None
+
         try:
-            from anthropic import Anthropic, APIError
+            from anthropic import Anthropic
 
             client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
             response = client.messages.create(
@@ -144,11 +173,25 @@ class AgentService:
                 response.usage.output_tokens,
                 escalation,
             )
+            if generation:
+                generation.end(
+                    output=clean,
+                    usage={
+                        'input': response.usage.input_tokens,
+                        'output': response.usage.output_tokens,
+                    },
+                    metadata={'escalation_flagged': escalation},
+                )
             return clean, escalation
 
         except Exception as e:
             # Catch-all so a broken API call never surfaces a 500 to the user
             logger.exception("Claude API call failed | error=%s", str(e))
+            if generation:
+                generation.end(
+                    level='ERROR',
+                    status_message=str(e),
+                )
             return (
                 "I'm having trouble connecting right now. Please try again in a moment, "
                 "or reach us directly at support@velora.shop.",
