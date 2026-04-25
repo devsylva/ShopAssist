@@ -147,7 +147,69 @@ class AgentService:
             for msg in reversed(recent)
         ]
 
+    def _mock_response(self, messages: list[dict]) -> tuple[str, bool]:
+        user_text = next(
+            (m['content'] for m in reversed(messages) if m['role'] == 'user'), ''
+        ).lower()
+
+        if any(w in user_text for w in ['refund', 'return', 'money back']):
+            return (
+                "Thanks for reaching out! Velora accepts returns within **30 days** of delivery "
+                "for unused items in original packaging. To start a return, visit your order "
+                "history at velora.shop or email support@velora.shop with your order ID. "
+                "Refunds are processed within 5–7 business days once we receive the item.",
+                False,
+            )
+        if any(w in user_text for w in ['ship', 'delivery', 'tracking', 'arrive', 'when']):
+            return (
+                "Great question! Standard shipping takes **5–7 business days**, and express "
+                "shipping (2–3 days) is available at checkout. Once your order ships you'll "
+                "receive a tracking link by email. If you share your order ID (format: SA-XXXXX) "
+                "I can look up the status directly for you.",
+                False,
+            )
+        if any(w in user_text for w in ['order', 'sa-', 'status', 'where is']):
+            return (
+                "I'd be happy to help with your order! Could you share your order ID? "
+                "It's in your confirmation email and looks like **SA-12345**. "
+                "Once I have that I can pull up the details for you.",
+                False,
+            )
+        if any(w in user_text for w in ['password', 'login', 'account', 'sign in', 'email']):
+            return (
+                "No worries — account issues are easy to fix. You can reset your password "
+                "from the **Sign In** page by clicking \"Forgot password?\". The reset link "
+                "arrives within a few minutes. If you're not receiving the email, check your "
+                "spam folder or contact support@velora.shop and we'll sort it out.",
+                False,
+            )
+        if any(w in user_text for w in ['cancel', 'dispute', 'charge', 'fraud', 'lawyer', 'legal']):
+            return (
+                "I'm sorry to hear you're having this experience — I want to make sure this "
+                "gets resolved properly. I'm flagging your case for our specialist team who "
+                "will follow up with you directly. You can also reach us at support@velora.shop "
+                "for the fastest response. <!-- ESCALATE -->",
+                True,
+            )
+        if any(w in user_text for w in ['hello', 'hi', 'hey', 'help', 'support']):
+            return (
+                "Hi there! Welcome to Velora support. I'm ShopAssist and I'm here to help "
+                "with orders, returns, shipping, and account questions. What can I do for you today?",
+                False,
+            )
+        return (
+            "Thanks for your message! I want to make sure I give you accurate information. "
+            "Could you tell me a bit more about what you need help with — for example, an "
+            "order issue, a return, or something else? You can also reach our team directly "
+            "at support@velora.shop.",
+            False,
+        )
+
     def _call_claude(self, system: str, messages: list[dict], trace=None) -> tuple[str, bool]:
+        if getattr(settings, 'USE_MOCK_AGENT', False):
+            logger.info("Mock agent mode — skipping Claude API call")
+            return self._mock_response(messages)
+
         if not settings.ANTHROPIC_API_KEY:
             logger.error("ANTHROPIC_API_KEY is not set — cannot call Claude")
             return (

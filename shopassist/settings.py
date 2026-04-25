@@ -88,6 +88,7 @@ KNOWLEDGE_DIR = BASE_DIR / 'knowledge'
 AGENT_MODEL = os.environ.get('AGENT_MODEL', 'claude-sonnet-4-6')
 # Limit conversation history sent to Claude. Raise this to demo token growth.
 AGENT_MAX_HISTORY = int(os.environ.get('AGENT_MAX_HISTORY', '20'))
+USE_MOCK_AGENT = os.environ.get('USE_MOCK_AGENT', 'False') == 'True'
 
 # ── Langfuse observability ────────────────────────────────────────────────────
 LANGFUSE_PUBLIC_KEY = os.environ.get('LANGFUSE_PUBLIC_KEY', '')
