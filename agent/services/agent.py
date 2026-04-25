@@ -7,11 +7,16 @@ from .orders import OrderService
 
 logger = logging.getLogger('agent')
 
-langfuse = Langfuse(
-    public_key=settings.LANGFUSE_PUBLIC_KEY,
-    secret_key=settings.LANGFUSE_SECRET_KEY,
-    host=settings.LANGFUSE_HOST_URL,
-)
+try:
+    langfuse = Langfuse(
+        public_key=settings.LANGFUSE_PUBLIC_KEY,
+        secret_key=settings.LANGFUSE_SECRET_KEY,
+        host=settings.LANGFUSE_HOST_URL,
+    )
+    logger.info("Langfuse initialized successfully")
+except Exception as e:
+    langfuse = None
+    logger.error("Langfuse initialization failed | error=%s", str(e))
 
 ORDER_ID_RE = re.compile(r'\b(SA-\d{5})\b', re.IGNORECASE)
 
@@ -61,7 +66,7 @@ class AgentService:
             name="shopassist.process_message",
             session_id=session.session_key,
             input=user_message,
-        )
+        ) if langfuse else None
 
         # ── Order lookup ─────────────────────────────────────────────────────
         order_data = None
@@ -101,15 +106,16 @@ class AgentService:
         response_text, escalation_flagged = self._call_claude(system, messages, trace)
 
         source_filenames = [s['filename'] for s in sources]
-        trace.update(
-            output=response_text,
-            metadata={
-                'escalation_flagged': escalation_flagged,
-                'order_lookup_used': order_lookup_used,
-                'sources_used': source_filenames,
-            },
-        )
-        langfuse.flush()
+        if trace:
+            trace.update(
+                output=response_text,
+                metadata={
+                    'escalation_flagged': escalation_flagged,
+                    'order_lookup_used': order_lookup_used,
+                    'sources_used': source_filenames,
+                },
+            )
+            langfuse.flush()
 
         logger.info(
             "Response ready | session=%s | escalation=%s | order_lookup=%s | sources=%s",
