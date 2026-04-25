@@ -109,6 +109,7 @@ class AgentService:
                 'sources_used': source_filenames,
             },
         )
+        langfuse.flush()
 
         logger.info(
             "Response ready | session=%s | escalation=%s | order_lookup=%s | sources=%s",
