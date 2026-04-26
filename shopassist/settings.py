@@ -1,8 +1,14 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import sentry_sdk
 
 load_dotenv()
+
+sentry_sdk.init(
+    dsn="https://c7c76bb3bd2baa87b6c57e37ffb8e9aa@o4511283242270720.ingest.us.sentry.io/4511283245154304",
+    send_default_pii=True,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -88,7 +94,6 @@ KNOWLEDGE_DIR = BASE_DIR / 'knowledge'
 AGENT_MODEL = os.environ.get('AGENT_MODEL', 'claude-sonnet-4-6')
 # Limit conversation history sent to Claude. Raise this to demo token growth.
 AGENT_MAX_HISTORY = int(os.environ.get('AGENT_MAX_HISTORY', '20'))
-USE_MOCK_AGENT = os.environ.get('USE_MOCK_AGENT', 'False') == 'True'
 
 # ── Langfuse observability ────────────────────────────────────────────────────
 LANGFUSE_PUBLIC_KEY = os.environ.get('LANGFUSE_PUBLIC_KEY', '')
